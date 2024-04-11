@@ -1,15 +1,32 @@
-name: Docker Image CI
+name: Test Swagger Pet Store REST API
 
-on:
-  workflow_dispatch
+on: workflow_dispatch
     
 jobs:
-
   build:
-
     runs-on: ubuntu-latest
-
     steps:
-    - uses: actions/checkout@v3
-    - name: Build the Docker image
-      run: docker build . --file Dockerfile --tag my-image-name:$(date +%s)
+    - uses: actions/checkout@v4
+    - uses: actions/setup-java@v3
+      with:
+        java-version: '8'
+        distribution: 'temurin'
+        architecture: x64
+        cache: maven
+    - uses: actions/setup-node@v4
+      with:
+        node-version: latest
+    - name: Build and run the Docker image
+      run: |
+        mvn clean install -DskipTests
+        docker build -t swaggerapi/petstore3:unstable .
+        docker pull swaggerapi/petstore3:unstable
+        docker run  -d -p 8080:8080 swaggerapi/petstore3:unstable
+    - name: Verify up and running
+      run: |
+        sleep 3
+        curl 'http://localhost:8080/api/v3/pet/findByStatus?status=available'
+    - name: Install Newman and run tests
+      run: |
+        npm install -g newman
+        newman run PetStore.postman_collection.json
